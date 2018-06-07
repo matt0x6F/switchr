@@ -1,3 +1,6 @@
+switchr
+===
+
 **Introduction**
 
 Switchr is a command line application for publicly shared pairing stations.
