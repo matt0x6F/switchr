@@ -19,11 +19,16 @@ var (
 		Use:   "switchr",
 		Short: "Switchr is a profile switcher for pair programming",
 		Long:  `Switchr is a profile switcher for pair programming in Linux on shared workstation`,
-		Run: func(cmd *cobra.Command, args []string) {
-			//
-		},
+		Run:   rootCommand,
 	}
 )
+
+func rootCommand(cmd *cobra.Command, args []string) {
+	if len(args) == 0 {
+		cmd.Help()
+		os.Exit(0)
+	}
+}
 
 func init() {
 	cobra.OnInitialize(initConfig)
