@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var osExit = os.Exit
 var switchCmd = &cobra.Command{
 	Use:   "switch",
 	Short: "Switch user",
@@ -26,7 +27,7 @@ func processArgs(args []string) {
 	if len(args) == 0 {
 		fmt.Println("Error: you must provide a user")
 		fmt.Println("Usage: switchr switch [user]")
-		os.Exit(2)
+		osExit(2)
 	}
 
 	user := args[0]
@@ -39,11 +40,11 @@ func processArgs(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		os.Exit(0)
+		osExit(0)
 	}
 
 	fmt.Printf("No profile found for %s.\n", user)
-	os.Exit(1)
+	osExit(1)
 }
 
 func switchUser(profile config.ProfileConfiguration) error {
