@@ -19,6 +19,10 @@ var switchCmd = &cobra.Command{
 }
 
 func switchCommand(cmd *cobra.Command, args []string) {
+	processArgs(args)
+}
+
+func processArgs(args []string) {
 	if len(args) == 0 {
 		fmt.Println("Error: you must provide a user")
 		fmt.Println("Usage: switchr switch [user]")

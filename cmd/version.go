@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Version displays the current version
+// Version displays version and is imported at build time
 var Version string
 
 var versionCmd = &cobra.Command{
@@ -17,10 +17,15 @@ var versionCmd = &cobra.Command{
 }
 
 func versionCommand(cmd *cobra.Command, args []string) {
-	if Version == "" {
-		Version = "dev"
+	fmt.Printf("switchr version: %s\n", getVersion(Version))
+}
+
+func getVersion(version string) string {
+	if version == "" {
+		version = "dev"
 	}
-	fmt.Printf("switchr version: %s\n", Version)
+
+	return version
 }
 
 func init() {
