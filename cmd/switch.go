@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 
@@ -11,7 +13,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var osExit = os.Exit
+var errMissingArg = errors.New("Missing user argument")
+var errProfileNotFound = errors.New("No profile found")
+
 var switchCmd = &cobra.Command{
 	Use:   "switch",
 	Short: "Switch user",
@@ -20,31 +24,34 @@ var switchCmd = &cobra.Command{
 }
 
 func switchCommand(cmd *cobra.Command, args []string) {
-	processArgs(args)
+	if err := processArgs(args); err != nil {
+		log.Fatalf("Error %s", err)
+	}
 }
 
-func processArgs(args []string) {
+func processArgs(args []string) error {
 	if len(args) == 0 {
-		fmt.Println("Error: you must provide a user")
-		fmt.Println("Usage: switchr switch [user]")
-		osExit(2)
+		return errMissingArg
 	}
 
 	user := args[0]
 	for _, profile := range configuration.Profiles {
-		// Look for the user by email
+		// Look for the profile by email address
 		if profile.Email != user {
 			continue
 		}
+
+		// Profile found
 		if err := switchUser(profile); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+			// Error occurred during switching
+			return err
 		}
-		osExit(0)
+
+		// Profile found, no errors
+		return nil
 	}
 
-	fmt.Printf("No profile found for %s.\n", user)
-	osExit(1)
+	return errProfileNotFound
 }
 
 func switchUser(profile config.ProfileConfiguration) error {
