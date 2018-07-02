@@ -13,14 +13,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var errMissingArg = errors.New("Missing user argument")
-var errProfileNotFound = errors.New("No profile found")
+// Might be good to use Errof (https://golang.org/pkg/errors/#example_New_errorf)
+
+var (
+	errMissingArg      = errors.New("Missing user argument")
+	errProfileNotFound = errors.New("No profile found")
+	errHomeDir         = errors.New("Determining home directory")
+	errOpenFile        = errors.New("Opening file")
+	errCreateFile      = errors.New("Creating file")
+	errCopyFile        = errors.New("Copying file")
+	errSyncFile        = errors.New("Syncing file")
+	errExecCmd         = errors.New("Executing command")
+)
 
 var switchCmd = &cobra.Command{
 	Use:   "switch",
 	Short: "Switch user",
 	Long:  `Switch the active user`,
 	Run:   switchCommand,
+}
+
+func init() {
+	RootCmd.AddCommand(switchCmd)
 }
 
 func switchCommand(cmd *cobra.Command, args []string) {
@@ -34,8 +48,15 @@ func processArgs(args []string) error {
 		return errMissingArg
 	}
 
-	user := args[0]
-	for _, profile := range configuration.Profiles {
+	if err := findProfile(args[0], configuration.Profiles); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func findProfile(user string, profiles []config.ProfileConfiguration) error {
+	for _, profile := range profiles {
 		// Look for the profile by email address
 		if profile.Email != user {
 			continue
@@ -56,59 +77,82 @@ func processArgs(args []string) error {
 
 func switchUser(profile config.ProfileConfiguration) error {
 	home, err := homedir.Dir()
-	checkErrors(err)
+	if err != nil {
+		return errHomeDir
+	}
 
+	if err := moveKeys(home, profile); err != nil {
+		return err
+	}
+
+	fmt.Printf("Setting Git name to %s and email to %s\n", profile.Name, profile.Email)
+
+	if err := setGit("user.name", profile.Name); err != nil {
+		return err
+	}
+
+	if err := setGit("user.email", profile.Email); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func setGit(arg string, value string) error {
+	cmd := "git"
+	args := []string{"config", "--global", arg, value}
+
+	if err := exec.Command(cmd, args...).Run(); err != nil {
+		return errExecCmd
+	}
+
+	return nil
+}
+
+func moveKeys(home string, profile config.ProfileConfiguration) error {
 	hostPrivateKey := home + "/.ssh/id_rsa"
 	hostPublicKey := home + "/.ssh/id_rsa.pub"
 	userPrivateKey := home + "/.ssh/" + profile.Key
 	userPublicKey := home + "/.ssh/" + profile.Key + ".pub"
 
-	fmt.Printf("Moving ssh key ~/.ssh/%s_rsa, ~/.ssh/%s_rsa.pub\n", profile.Key, profile.Key)
+	fmt.Printf(
+		"Moving ssh key %s/.ssh/%s, %s/.ssh/%s.pub\n",
+		home, profile.Key, home, profile.Key,
+	)
 
-	copyFile(userPrivateKey, hostPrivateKey)
-	copyFile(userPublicKey, hostPublicKey)
-
-	fmt.Printf("Setting Git name to %s and email to %s\n", profile.Name, profile.Email)
-
-	cmd := "git"
-	argsName := []string{"config", "--global", "user.name", profile.Name}
-	argsEmail := []string{"config", "--global", "user.email", profile.Email}
-
-	// Set Git Config name
-	if err := exec.Command(cmd, argsName...).Run(); err != nil {
+	if err := copyFile(userPrivateKey, hostPrivateKey); err != nil {
 		return err
 	}
-	// Set Git Config Email
-	if err := exec.Command(cmd, argsEmail...).Run(); err != nil {
+	if err := copyFile(userPublicKey, hostPublicKey); err != nil {
 		return err
 	}
+
 	return nil
 }
 
-func init() {
-	RootCmd.AddCommand(switchCmd)
-}
-
-func copyFile(source string, destination string) {
+func copyFile(source string, destination string) error {
 	srcFile, err := os.Open(source)
-	checkErrors(err)
+	if err != nil {
+		return errOpenFile
+	}
 	defer srcFile.Close()
 
 	// Create if the file doesn't exist
 	destFile, err := os.Create(destination)
-	checkErrors(err)
+	if err != nil {
+		return errCreateFile
+	}
 	defer destFile.Close()
 
 	_, err = io.Copy(destFile, srcFile)
-	checkErrors(err)
+	if err != nil {
+		return errCopyFile
+	}
 
 	err = destFile.Sync()
-	checkErrors(err)
-}
-
-func checkErrors(err error) {
 	if err != nil {
-		fmt.Printf("Error: %s\n", err.Error())
-		os.Exit(1)
+		return errSyncFile
 	}
+
+	return nil
 }
